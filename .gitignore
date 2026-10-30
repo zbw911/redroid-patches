@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.apk
+*.dex
+*.jar
+*.pk8
+*.pem
+.env
+/build/
+/out/

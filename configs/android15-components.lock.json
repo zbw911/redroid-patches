@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "baseImage": "redroid/redroid@sha256:b51bde9cef80f7bd7581148192f2b2f4d41f23c6344cfe88eceeb8ddd67490ee",
+  "sourceSystemUiPath": "/system/system_ext/priv-app/SystemUI/SystemUI.apk",
+  "sourceSystemUiSha256": "e88606653c8588d22c82c328a53c00b8fef9af0e78de6be6bd9507d2a671ee74",
+  "sourcePlatformCertSha256": "c8a2e9bccf597c2fb6dc66bee293fc13f2fc47ec77bc6b2b0d52c11f51192ab8",
+  "targetAndroidSdk": 35,
+  "architecture": "x86_64",
+  "windowsHostPackage": "com.buildploy.statusbarprobe.host",
+  "dexFormat": "039",
+  "commandQueueMethod": "Lcom/android/systemui/statusbar/CommandQueue;->onSystemBarAttributesChanged(II[Lcom/android/internal/view/AppearanceRegion;ZIILjava/lang/String;[Lcom/android/internal/statusbar/LetterboxDetails;)V",
+  "androidPlatform": {
+    "package": "platforms;android-35",
+    "revision": 2,
+    "extensionLevel": 13,
+    "androidJar": "platforms/android-35/android.jar",
+    "androidJarSha256": "4566663c3876e022b4fa4ced8c8697c4ab1688267f090114fd92d027b32e619b"
+  },
+  "buildTools": {
+    "package": "build-tools;35.0.0",
+    "version": "35.0.0",
+    "hostPlatform": "linux-x86_64",
+    "d8Version": "8.6.2-dev",
+    "d8BuildCommit": "abaab469b5ebd4dd2bb91ba0ed6f45277faae4ca",
+    "apksignerVersion": "0.9",
+    "files": {
+      "build-tools/35.0.0/aapt": "393c4c87f675f9555c50921fb53be1f3893cacd29f2270c4863e2e3f99583c39",
+      "build-tools/35.0.0/d8": "b773a721be3d4988dea9660815a9e441b76100e5b0f5c72b5893cfadadc76c6f",
+      "build-tools/35.0.0/lib/d8.jar": "305622ad00535684534eb8f742cbf5e628a9abc09d8ea4d39d1babb95bf0cee5",
+      "build-tools/35.0.0/apksigner": "b47549e373b895ce6ca620d0c7887e674d9615ffa837a86ac601dcfd04adb0f0",
+      "build-tools/35.0.0/lib/apksigner.jar": "00ef9948f843fe395d2440ae3ef41405b8040a6d5d46493bd1902ac0ee6deae7",
+      "build-tools/35.0.0/zipalign": "a205d94a45c8522ca1b571dcbe190df145c818f0a29dfb366e4dd78eef4f56a7",
+      "build-tools/35.0.0/dexdump": "ef273cb9e5a01ccbba046ea7c80d73203f0c908d2779b4c58e21091753c86049",
+      "build-tools/35.0.0/lib64/libc++.so": "71c9f5d2e9d6e3e1875340c20a2f6b750c2c7f54f730f5fb7f1fd1d0877c8d6f"
+    }
+  },
+  "mavenArtifacts": [
+    {
+      "coordinate": "com.android.tools.smali:smali-dexlib2:3.0.9",
+      "url": "https://dl.google.com/dl/android/maven2/com/android/tools/smali/smali-dexlib2/3.0.9/smali-dexlib2-3.0.9.jar",
+      "sha256": "8b547506f62f91d74b70f4beb4989b99e1ff61fc50b2525e9796ca35f0a351dc"
+    },
+    {
+      "coordinate": "com.google.guava:guava:33.3.1-jre",
+      "url": "https://repo.maven.apache.org/maven2/com/google/guava/guava/33.3.1-jre/guava-33.3.1-jre.jar",
+      "sha256": "4bf0e2c5af8e4525c96e8fde17a4f7307f97f8478f11c4c8e35a0e3298ae4e90"
+    },
+    {
+      "coordinate": "com.google.guava:failureaccess:1.0.2",
+      "url": "https://repo.maven.apache.org/maven2/com/google/guava/failureaccess/1.0.2/failureaccess-1.0.2.jar",
+      "sha256": "8a8f81cf9b359e3f6dfa691a1e776985c061ef2f223c9b2c80753e1b458e8064"
+    }
+  ],
+  "targetDex": "classes2.dex",
+  "targetRegisters": 11,
+  "targetInstructions": 22,
+  "javaMajor": 17,
+  "javaVersion": "17.0.17+10",
+  "javaRelease": 11
+}
