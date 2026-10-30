@@ -184,8 +184,8 @@ def dockerfile(lock):
     return (f"FROM --platform=linux/amd64 {lock['baseImage']}\n"
             "LABEL org.opencontainers.image.title=\"redroid status bar component prototype\"\n"
             f"LABEL dev.redroid.components.lock=\"{sha(LOCK)}\"\n"
-            f"COPY --chown=0:0 --chmod=0644 SystemUI.apk {lock['sourceSystemUiPath']}\n"
-            "COPY --chown=0:0 --chmod=0644 statusbar-window-host.apk "
+            f"COPY --chown=0:0 SystemUI.apk {lock['sourceSystemUiPath']}\n"
+            "COPY --chown=0:0 statusbar-window-host.apk "
             "/system/system_ext/priv-app/BuildployStatusBarHost/BuildployStatusBarHost.apk\n")
 
 
@@ -218,6 +218,9 @@ def build_components(args, workspace, lock):
     context.mkdir()
     shutil.copyfile(systemui["systemui_apk"], context / "SystemUI.apk")
     shutil.copyfile(host["apk"], context / "statusbar-window-host.apk")
+    # Legacy Docker builders preserve input permissions but do not support COPY --chmod.
+    for apk in context.glob("*.apk"):
+        apk.chmod(0o644)
     (context / "Dockerfile").write_text(dockerfile(lock))
     (context / ".dockerignore").write_text("*\n!Dockerfile\n!SystemUI.apk\n!statusbar-window-host.apk\n")
     if source_hashes() != sources:
@@ -242,6 +245,9 @@ def image_command(workspace, name, tag, lock):
         raise ValueError("Dockerfile differs from pinned recipe")
     for name, expected in proof["imageFiles"].items():
         check_hash(context / name, expected)
+    for name in ("SystemUI.apk", "statusbar-window-host.apk"):
+        if (context / name).stat().st_mode & 0o777 != 0o644:
+            raise ValueError(f"Image APK permissions must be 0644: {name}")
     return ["docker", "build", "--platform", "linux/amd64", "--pull", "--tag", tag, str(context)]
 
 

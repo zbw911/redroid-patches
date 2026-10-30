@@ -191,6 +191,12 @@ class ComponentsTest(unittest.TestCase):
                 finally:
                     changed.write_bytes(original)
 
+    def test_image_rejects_changed_apk_permissions(self):
+        context = self.image_build(self.workspace)
+        (context / "SystemUI.apk").chmod(0o600)
+        with self.assertRaisesRegex(ValueError, "permissions must be 0644"):
+            components.image_command(self.workspace, "candidate", "redroid:test", self.lock)
+
     def test_capacity_rejects_unknown_or_low_physical_storage_despite_large_virtual_disk(self):
         for physical, error, message in (
                 (None, "Windows physical host storage is unknown", "host storage is unknown"),
