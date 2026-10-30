@@ -9,13 +9,19 @@ import com.android.tools.smali.dexlib2.iface.instruction.formats.UnknownInstruct
 import java.io.File;
 import java.util.*;
 
-/** Narrow semantic check of the single injected SystemUI callback; never rewrites an APK. */
+/** Verify the callback prefix and the two same-width startup call replacements. */
 public final class VerifyDex {
     private static final String TARGET = "Lcom/android/systemui/statusbar/CommandQueue;->onSystemBarAttributesChanged(II[Lcom/android/internal/view/AppearanceRegion;ZIILjava/lang/String;[Lcom/android/internal/statusbar/LetterboxDetails;)V";
     private static final String BRIDGE = "Lcom/buildploy/statusbarprototype/AppearanceBridge;->dispatch(IILjava/lang/Object;ZIILjava/lang/String;Ljava/lang/Object;)V";
+    private static final String START = "Lcom/android/systemui/statusbar/phone/CentralSurfacesImpl;->start()V";
+    private static final String REGISTER = "Lcom/android/internal/statusbar/IStatusBarService;->registerStatusBar(Lcom/android/internal/statusbar/IStatusBar;)Lcom/android/internal/statusbar/RegisterStatusBarResult;";
+    private static final String REGISTER_BRIDGE = "Lcom/buildploy/statusbarprototype/AppearanceBridge;->register(Ljava/lang/Object;Ljava/lang/Object;)Lcom/android/internal/statusbar/RegisterStatusBarResult;";
+    private static final String TASK_REPLAY = "Lcom/android/wm/shell/ShellTaskOrganizer;->registerOrganizer()Ljava/util/List;";
+    private static final String TASK_APPEARED = "Lcom/android/wm/shell/ShellTaskOrganizer;->onTaskAppeared(Landroid/window/TaskAppearedInfo;)V";
+    private static final String TASK_BRIDGE = "Lcom/buildploy/statusbarprototype/AppearanceBridge;->existingTaskAppeared(Ljava/lang/Object;Ljava/lang/Object;)V";
     private static final DexFormatter FORMAT = DexFormatter.INSTANCE;
     private static long classes, fields, methods, instructions, tries;
-    private static int matched;
+    private static int matched, registrations, taskRestores;
 
     private static void same(Object before, Object after, String where) {
         if (!Objects.equals(before, after)) throw new IllegalStateException(where + " differs: original=" + before + ", candidate=" + after);
@@ -129,9 +135,36 @@ public final class VerifyDex {
             prefix = 1; shift = 3;
         }
         same(oldCode.size() + prefix, newCode.size(), key + " instruction count");
+        int address = 0, startupCalls = 0;
         for (int n = 0; n < oldCode.size(); n++) {
-            same(instruction(oldCode.get(n)), instruction(newCode.get(n + prefix)), key + " instruction " + n);
+            Instruction original = oldCode.get(n), candidate = newCode.get(n + prefix);
+            List<Object> expected = instruction(original);
+            boolean registration = START.equals(key);
+            if ((registration || TASK_REPLAY.equals(key)) && original instanceof ReferenceInstruction
+                    && (registration ? REGISTER : TASK_APPEARED).equals(
+                            FORMAT.getReference(((ReferenceInstruction) original).getReference()))) {
+                same(registration ? 18 : 10, a.getRegisterCount(), "Pinned startup register count");
+                same(registration ? 205 : 82, address, "Pinned startup call code address");
+                same(registration ? Opcode.INVOKE_INTERFACE : Opcode.INVOKE_VIRTUAL,
+                        original.getOpcode(), "Original startup call opcode");
+                require(original instanceof FiveRegisterInstruction, "Original startup call format");
+                FiveRegisterInstruction call = (FiveRegisterInstruction) original;
+                same(2, call.getRegisterCount(), "Original startup call argument count");
+                same(registration ? 0 : 9, call.getRegisterC(), "Original startup receiver register");
+                same(registration ? 7 : 4, call.getRegisterD(), "Original startup argument register");
+                // Only opcode and symbolic callee change; all operands, widths and flow stay exact.
+                expected.set(0, Opcode.INVOKE_STATIC);
+                expected.set(expected.size() - 1, registration ? REGISTER_BRIDGE : TASK_BRIDGE);
+                startupCalls++;
+            }
+            same(expected, instruction(candidate), key + " instruction " + n);
+            address += original.getCodeUnits();
             instructions++;
+        }
+        if (START.equals(key) || TASK_REPLAY.equals(key)) {
+            same(START.equals(key) ? 2600 : 92, address, "Pinned startup code units");
+            same(1, startupCalls, "Expected one startup call replacement");
+            if (START.equals(key)) registrations += startupCalls; else taskRestores += startupCalls;
         }
         same(tryBlocks(a, 0), tryBlocks(b, shift), key + " try boundaries and handlers");
         tries += a.getTryBlocks().size();
@@ -165,18 +198,20 @@ public final class VerifyDex {
     public static void main(String[] args) throws Exception {
         require(args.length == 2, "Usage: VerifyDex <original-SystemUI.apk> <patched-SystemUI.apk>");
         try {
-            MultiDexContainer<?> original = DexFileFactory.loadDexContainer(new File(args[0]), Opcodes.forApi(35));
-            MultiDexContainer<?> candidate = DexFileFactory.loadDexContainer(new File(args[1]), Opcodes.forApi(35));
+            MultiDexContainer<?> original = DexFileFactory.loadDexContainer(new File(args[0]), Opcodes.forDexVersion(39));
+            MultiDexContainer<?> candidate = DexFileFactory.loadDexContainer(new File(args[1]), Opcodes.forDexVersion(39));
             require(original.getEntry("classes2.dex") != null && candidate.getEntry("classes2.dex") != null, "Both APKs must contain classes2.dex");
             Map<String, ClassDef> a = classes(original.getEntry("classes2.dex").getDexFile());
             Map<String, ClassDef> b = classes(candidate.getEntry("classes2.dex").getDexFile());
             same(a.keySet(), b.keySet(), "classes2.dex original class set");
             for (String name : a.keySet()) compare(a.get(name), b.get(name));
             same(1, matched, "Expected exactly one modified method");
+            same(1, registrations, "Expected exactly one registration replacement");
+            same(1, taskRestores, "Expected exactly one existing-task replay replacement");
             System.out.println("PASS classes2.dex classes=" + classes + " fields=" + fields + " methods=" + methods
                     + " originalInstructions=" + instructions + " tryBlocks=" + tries
-                    + " targetOriginalInstructions=22 prefixInstructions=1 prefixCodeUnits=3 targetRegisters=11");
-            System.out.println("SCOPE original classes/fields/methods, flags, annotations, parameter metadata, register counts, symbolic operands/references/payloads and exception boundaries; target addresses normalized by +3. Debug items and other DEX ZIP entries are outside this tool.");
+                    + " targetOriginalInstructions=22 prefixInstructions=1 prefixCodeUnits=3 targetRegisters=11 registrations=1 taskRestores=1");
+            System.out.println("SCOPE original classes/fields/methods, flags, annotations, parameter metadata, register counts, symbolic operands/references/payloads and exception boundaries; callback addresses normalized by +3, startup only its two same-width callees/opcodes changed. Debug items and other DEX ZIP entries are outside this tool.");
         } catch (Exception failure) {
             System.err.println("FAIL VerifyDex after classes=" + classes + " methods=" + methods + ": " + failure.getMessage());
             throw failure;

@@ -56,5 +56,13 @@
   "targetInstructions": 22,
   "javaMajor": 17,
   "javaVersion": "17.0.17+10",
-  "javaRelease": 11
+  "javaRelease": 11,
+  "registrationMethod": "Lcom/android/systemui/statusbar/phone/CentralSurfacesImpl;->start()V",
+  "registrationRegisters": 18,
+  "registrationCodeUnits": 2600,
+  "registrationInstructionAddress": 205,
+  "taskRestoreMethod": "Lcom/android/wm/shell/ShellTaskOrganizer;->registerOrganizer()Ljava/util/List;",
+  "taskRestoreRegisters": 10,
+  "taskRestoreCodeUnits": 92,
+  "taskRestoreInstructionAddress": 82
 }

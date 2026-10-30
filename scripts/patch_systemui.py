@@ -119,9 +119,19 @@ def patch_systemui(source_apk: Path, output_dir: Path, sdk: Path, java_home: Pat
     release = str(lock["javaRelease"])
     run([jdk / "javac", "--release", release, "-cp", cp, "-d", tool_classes,
          SOURCES / "DexPatch.java", SOURCES / "VerifyDex.java"], env=env)
-    run([jdk / "javac", "--release", release, "-cp", android, "-d", bridge_classes,
+    # Only the wrapper's return descriptor needs this hidden framework type. Its real
+    # implementation remains in the frozen device framework, never in our added DEX.
+    stub_source = output / "compile-only/com/android/internal/statusbar/RegisterStatusBarResult.java"
+    stub_source.parent.mkdir(parents=True)
+    stub_source.write_text("package com.android.internal.statusbar; public final class RegisterStatusBarResult {}\n")
+    stub_classes = output / "compile-only-classes"
+    stub_classes.mkdir()
+    run([jdk / "javac", "--release", release, "-d", stub_classes, stub_source], env=env)
+    stub_jar = output / "compile-only.jar"
+    run([jdk / "jar", "cf", stub_jar, "-C", stub_classes, "."], env=env)
+    run([jdk / "javac", "--release", release, "-cp", str(android) + os.pathsep + str(stub_jar), "-d", bridge_classes,
          SOURCES / "AppearanceBridge.java"], env=env)
-    run([tools / "d8", "--min-api", "35", "--lib", android, "--output", bridge_dex,
+    run([tools / "d8", "--min-api", "35", "--lib", android, "--classpath", stub_jar, "--output", bridge_dex,
          *sorted(bridge_classes.rglob("*.class"))], env=env)
     patched_dex = output / "classes2-patched.dex"
     tools_cp = str(tool_classes) + os.pathsep + cp
@@ -131,7 +141,15 @@ def patch_systemui(source_apk: Path, output_dir: Path, sdk: Path, java_home: Pat
     actual = dict(line.split("=", 1) for line in patch_log.splitlines() if "=" in line)
     expected = {"entry": target, "method": lock["commandQueueMethod"],
                 "registers": str(lock["targetRegisters"]),
-                "instructions": str(lock["targetInstructions"])}
+                "instructions": str(lock["targetInstructions"]),
+                "registration_method": lock["registrationMethod"],
+                "registration_registers": str(lock["registrationRegisters"]),
+                "registration_code_units": str(lock["registrationCodeUnits"]),
+                "registration_instruction_address": str(lock["registrationInstructionAddress"]),
+                "task_restore_method": lock["taskRestoreMethod"],
+                "task_restore_registers": str(lock["taskRestoreRegisters"]),
+                "task_restore_code_units": str(lock["taskRestoreCodeUnits"]),
+                "task_restore_instruction_address": str(lock["taskRestoreInstructionAddress"])}
     if any(actual.get(name) != value for name, value in expected.items()):
         raise ValueError("Original CommandQueue method differs from locked contract")
     patched_bytes = patched_dex.read_bytes()
@@ -173,6 +191,12 @@ def patch_systemui(source_apk: Path, output_dir: Path, sdk: Path, java_home: Pat
              "removed_old_signatures": removed_signatures,
              "sources": {name: digest(SOURCES / name) for name in
                          ("AppearanceBridge.java", "DexPatch.java", "VerifyDex.java")},
+             "registration": {name: actual[name] for name in
+                              ("registration_method", "registration_registers", "registration_code_units",
+                               "registration_instruction_address")},
+             "task_restore": {name: actual[name] for name in
+                              ("task_restore_method", "task_restore_registers", "task_restore_code_units",
+                               "task_restore_instruction_address")},
              "verification": {"dex_header": {"source": source_header, "patched": patched_header,
                                              "bridge": bridge_header},
                               "dexdump": "passed", "semantic": semantic.splitlines()[0],

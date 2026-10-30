@@ -10,7 +10,7 @@ final class AppearanceEvent {
     static final String SOURCE = "SystemUI.CommandQueue.onSystemBarAttributesChanged";
     final int displayId, appearance, senderUid;
     final long seq, time, receivedAt;
-    final String packageName, source;
+    final String packageName, source, bridgeEpoch, appearancePackageName;
     final int[] regionAppearances, regionBounds;
     final boolean supported, darkIcons;
 
@@ -23,11 +23,14 @@ final class AppearanceEvent {
         receivedAt = android.os.SystemClock.elapsedRealtime();
         packageName = intent.getStringExtra("packageName");
         source = intent.getStringExtra("source");
+        bridgeEpoch = intent.getStringExtra("bridgeEpoch");
+        appearancePackageName = intent.getStringExtra("appearancePackageName");
         this.senderUid = senderUid;
         int[] appearances = intent.getIntArrayExtra("regionAppearances");
         int[] bounds = intent.getIntArrayExtra("regionBounds");
         if (displayId <= 0 || !intent.hasExtra("appearance") || seq <= 0 || time < 0 || time > receivedAt
-                || packageName == null || packageName.length() > 255 || !SOURCE.equals(source)
+                || packageName == null || packageName.length() > 255 || !packageName.equals(appearancePackageName) || !(SOURCE.equals(source) || "SystemUI.StatusBarManagerService.registerStatusBarForAllDisplays".equals(source))
+                || bridgeEpoch == null || bridgeEpoch.length() > 128 || bridgeEpoch.isEmpty()
                 || appearances == null || bounds == null || appearances.length > 64 || bounds.length != appearances.length * 4)
             throw new IllegalArgumentException("INVALID_APPEARANCE_EVENT");
         regionAppearances = appearances.clone();
@@ -52,7 +55,7 @@ final class AppearanceEvent {
         }
         return new JSONObject().put("displayId", displayId).put("appearance", appearance).put("seq", seq)
                 .put("eventTimeElapsedRealtime", time).put("receivedAtElapsedRealtime", receivedAt)
-                .put("packageName", packageName).put("source", source).put("senderUid", senderUid)
+                .put("packageName", packageName).put("appearancePackageName", appearancePackageName).put("bridgeEpoch", bridgeEpoch).put("source", source).put("senderUid", senderUid)
                 .put("senderPackage", "com.android.systemui").put("regions", regions)
                 .put("uniformLightStatusBarRegions", supported).put("darkIcons", darkIcons);
     }

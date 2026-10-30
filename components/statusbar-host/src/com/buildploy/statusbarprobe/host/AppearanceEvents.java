@@ -27,16 +27,14 @@ public final class AppearanceEvents extends BroadcastReceiver {
                         || !Arrays.asList(packages).contains("com.android.systemui")
                         || context.getPackageManager().checkSignatures(senderUid, android.os.Process.myUid()) != PackageManager.SIGNATURE_MATCH)
                     throw new SecurityException("SYSTEMUI_PLATFORM_SIGNATURE_REQUIRED");
-                HostActivity host = HostActivity.current;
-                if (host == null || host.isDestroyed()) throw new IllegalStateException("HOST_ACTIVITY_NOT_RUNNING");
-                AppearanceEvent event = new AppearanceEvent(intent, senderUid);
-                reply.put("ok", true).put("result", host.appearance(event));
+                StatusBarHost host = (StatusBarHost) context.getApplicationContext();
+                reply.put("ok", true).put("result", host.appearance(intent, senderUid));
                 ok = true;
-            } catch (Throwable failure) {
+            } catch (Exception failure) {
                 try { reply.put("ok", false).put("errorClass", failure.getClass().getSimpleName()).put("error", String.valueOf(failure.getMessage())); }
                 catch (Exception ignored) { /* Only fixed prototype diagnostics are serialized. */ }
             } finally {
-                Log.i(Commands.TAG, "BUILDPLOY_STATUSBAR_APPEARANCE " + reply);
+                Log.i(StatusBarHost.TAG, "BUILDPLOY_STATUSBAR_APPEARANCE " + reply);
                 pending.setResultCode(ok ? Activity.RESULT_OK : Activity.RESULT_CANCELED);
                 pending.setResultData(reply.toString());
                 pending.finish();
